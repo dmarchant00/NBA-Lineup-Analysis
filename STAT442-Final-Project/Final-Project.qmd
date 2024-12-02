@@ -5,23 +5,41 @@ format: html
 editor: visual
 ---
 
-## Quarto
+## NBA EDA
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+#### Libraries
 
 ```{r}
-1 + 1
+library(readxl)
+library(ggplot2)
+library(plotly)
+library(dplyr)
 ```
 
-You can add options to executable code like this
+#### Read in Data
 
 ```{r}
-#| echo: false
-2 * 2
+Lineups_Advanced <- read_excel("5 Man Lineups - Advanced.xlsx")
+Lineups_Traditional <- read_excel("5 Man Lineups - Traditional.xlsx")
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+#### Data Cleaning
+
+```{r}
+Lineups <- merge(Lineups_Advanced, Lineups_Traditional, by = c("Lineups", "Team", "GP", "Min"))
+
+```
+
+### EDA
+
+```{r}
+p <- ggplot(Lineups, aes(x = `+/-`, y = PIE, text = paste("Lineup:", Lineups, "<br>+/-:", `+/-`, "<br>PIE:", PIE))) + 
+  geom_point() + 
+  labs(title = "Correlation between +/- and PIE", 
+       x = "+/-", 
+       y = "PIE") + 
+  theme_minimal()
+
+# Convert ggplot to plotly for interactive plot with tooltips
+ggplotly(p, tooltip = "text")
+```
