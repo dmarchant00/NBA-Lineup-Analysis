@@ -35,7 +35,7 @@ Lineups <- merge(Lineups_Advanced, Lineups_Traditional, by = c("Lineups", "Team"
 ### EDA
 
 ```{r}
-p <- ggplot(Lineups, aes(x = `+/-`, y = PIE, text = paste("Lineup:", Lineups, "<br>+/-:", `+/-`, "<br>PIE:", PIE))) + 
+p <- ggplot(Lineups, aes(x = `+/-`, y = PIE, text = paste("Lineup:", Lineups, "<br>team:", Team, "<br>+/-:", `+/-`, "<br>PIE:", PIE))) + 
   geom_point() + 
   labs(title = "Correlation between +/- and PIE", 
        x = "+/-", 
@@ -82,6 +82,7 @@ plot_ly(
 library(shiny)
 library(dplyr)
 library(rlang)
+library(DT)
 
 # Ensure `Lineups_Advanced` is already loaded and available
 # Example dataset reference is now skipped since you already have it
@@ -93,13 +94,15 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       # Use data from `Lineups_Advanced` directly for inputs
-      selectInput("team", "Select Team:", choices = unique(Lineups_Advanced$Team)),
-      selectInput("sort_by", "Sort By:", choices = names(Lineups_Advanced)[sapply(Lineups_Advanced, is.numeric)])
+      selectInput("team", "Select Team:", choices = unique(Lineups$Team)),
+      selectInput("sort_by", "Sort By:", choices = names(Lineups)[sapply(Lineups, is.numeric)])
     ),
     
     mainPanel(
       # Table to display results
+      h3("Select a Lineup"),
       tableOutput("lineupTable")
+
     )
   )
 )
@@ -107,7 +110,7 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output) {
   output$lineupTable <- renderTable({
-    Lineups_Advanced %>%
+    Lineups %>%
       filter(Team == input$team) %>%              # Filter by team dynamically
       arrange(desc(!!sym(input$sort_by))) %>%    # Sort by selected column dynamically
       select(Lineups, Team, !!sym(input$sort_by)) # Show selected columns
