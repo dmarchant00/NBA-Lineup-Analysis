@@ -14,6 +14,7 @@ library(readxl)
 library(ggplot2)
 library(plotly)
 library(dplyr)
+library(shiny)
 ```
 
 #### Read in Data
@@ -21,6 +22,7 @@ library(dplyr)
 ```{r}
 Lineups_Advanced <- read_excel("5 Man Lineups - Advanced.xlsx")
 Lineups_Traditional <- read_excel("5 Man Lineups - Traditional.xlsx")
+Players <- read_excel("Players.xlsx")
 ```
 
 #### Data Cleaning
@@ -42,4 +44,77 @@ p <- ggplot(Lineups, aes(x = `+/-`, y = PIE, text = paste("Lineup:", Lineups, "<
 
 # Convert ggplot to plotly for interactive plot with tooltips
 ggplotly(p, tooltip = "text")
+```
+
+```{r}
+library(dplyr)
+library(plotly)
+
+# Assuming the dataset is named Lineups_Advanced
+# Filter the top 10 lineups based on net_rtg
+top_lineups <- Lineups_Advanced %>%
+  arrange(desc(NetRtg)) %>%
+  slice(1:10) %>%
+  select(Lineups, Team, NetRtg)
+
+# Create a plotly table to display the best lineups based on net_rtg
+plot_ly(
+  type = 'table',
+  header = list(
+    values = c("Lineups", "Team", "Net Rating"),
+    align = c('left', 'left', 'right'),
+    line = list(width = 1, color = 'black'),
+    fill = list(color = 'rgba(93, 164, 214, 0.8)'),
+    font = list(size = 12, color = 'white')
+  ),
+  cells = list(
+    values = rbind(top_lineups$Lineups, top_lineups$Team, top_lineups$NetRtg),
+    align = c('left', 'left', 'right'),
+    line = list(color = 'black', width = 1),
+    fill = list(color = c('rgba(245, 245, 245, 0.8)', 'rgba(255, 255, 255, 0.8)')),
+    font = list(size = 11, color = 'black')
+  )
+)
+```
+
+```{r}
+# Load required libraries
+library(shiny)
+library(dplyr)
+library(rlang)
+
+# Ensure `Lineups_Advanced` is already loaded and available
+# Example dataset reference is now skipped since you already have it
+
+# Define UI for the application
+ui <- fluidPage(
+  titlePanel("NBA Lineups Analysis"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      # Use data from `Lineups_Advanced` directly for inputs
+      selectInput("team", "Select Team:", choices = unique(Lineups_Advanced$Team)),
+      selectInput("sort_by", "Sort By:", choices = names(Lineups_Advanced)[sapply(Lineups_Advanced, is.numeric)])
+    ),
+    
+    mainPanel(
+      # Table to display results
+      tableOutput("lineupTable")
+    )
+  )
+)
+
+# Define server logic
+server <- function(input, output) {
+  output$lineupTable <- renderTable({
+    Lineups_Advanced %>%
+      filter(Team == input$team) %>%              # Filter by team dynamically
+      arrange(desc(!!sym(input$sort_by))) %>%    # Sort by selected column dynamically
+      select(Lineups, Team, !!sym(input$sort_by)) # Show selected columns
+  })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
+
 ```
