@@ -15,6 +15,8 @@ library(ggplot2)
 library(plotly)
 library(dplyr)
 library(shiny)
+library(readr)
+library(stringi)
 ```
 
 #### Read in Data
@@ -23,12 +25,17 @@ library(shiny)
 Lineups_Advanced <- read_excel("5 Man Lineups - Advanced.xlsx")
 Lineups_Traditional <- read_excel("5 Man Lineups - Traditional.xlsx")
 Players <- read_excel("Players.xlsx")
+Players_Info <- read_csv("Players.Info.csv")
 ```
 
 #### Data Cleaning
 
 ```{r}
 Lineups <- merge(Lineups_Advanced, Lineups_Traditional, by = c("Lineups", "Team", "GP", "Min"))
+
+Players <- Players %>%
+  mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player)) %>%
+  mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
 
 ```
 
