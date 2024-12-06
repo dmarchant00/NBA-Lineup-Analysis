@@ -22,8 +22,7 @@ library(stringi)
 #### Read in Data
 
 ```{r}
-Lineups_Advanced <- read_excel("5 Man Lineups - Advanced.xlsx")
-Lineups_Traditional <- read_excel("5 Man Lineups - Traditional.xlsx")
+Lineups <- read_excel("Lineups.xlsx")
 Players <- read_excel("Players.xlsx")
 Players_Info <- read_csv("Players.Info.csv")
 ```
@@ -31,12 +30,9 @@ Players_Info <- read_csv("Players.Info.csv")
 #### Data Cleaning
 
 ```{r}
-Lineups <- merge(Lineups_Advanced, Lineups_Traditional, by = c("Lineups", "Team", "GP", "Min"))
-
 Players <- Players %>%
   mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player)) %>%
   mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
-
 ```
 
 ### EDA
