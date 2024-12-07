@@ -33,6 +33,38 @@ Players_Info <- read_csv("Players.Info.csv")
 Players <- Players %>%
   mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player)) %>%
   mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
+
+Lineups <- Lineups %>%
+  rename(
+    PlusMinus = `+/-`,
+    ThreePM = `3PM`,
+    ThreePA = `3PA`,
+    ThreePerc = `3P%`,
+    ASTPerc = `AST%`,
+    OREBPerc = `OREB%`,
+    DREBPerc = `DREB%`,
+    REBPerc = `REB%`,
+    eFGPerc = `eFG%`,
+    TSPerc = `TS%`,
+    FTPerc = `FT%`,
+    FGPerc = `FG%`,
+    ASTtoTO = `AST/TO`,
+    ASTRatio = `AST Ratio`,
+    TORatio = `TO Ratio`
+)
+
+
+Players <- Players %>%
+  rename(
+    PlusMinus = `+/-`,
+    ThreePM = `3PM`,
+    ThreePA = `3PA`,
+    ThreePerc = `3P%`,
+    FTPerc = `FT%`,
+    FGPerc = `FG%`
+    
+)
+
 ```
 
 ### EDA
@@ -55,7 +87,7 @@ library(plotly)
 
 # Assuming the dataset is named Lineups_Advanced
 # Filter the top 10 lineups based on net_rtg
-top_lineups <- Lineups_Advanced %>%
+top_lineups <- Lineups %>%
   arrange(desc(NetRtg)) %>%
   slice(1:10) %>%
   select(Lineups, Team, NetRtg)
@@ -81,46 +113,67 @@ plot_ly(
 ```
 
 ```{r}
-# Load required libraries
-library(shiny)
-library(dplyr)
-library(rlang)
-library(DT)
+set.seed(123)
+train_indices <- sample(1:nrow(Lineups), 0.8 * nrow(Lineups))
+train_data <- Lineups[train_indices, ]
+test_data <- Lineups[-train_indices, ]
 
-# Ensure `Lineups_Advanced` is already loaded and available
-# Example dataset reference is now skipped since you already have it
+```
 
-# Define UI for the application
-ui <- fluidPage(
-  titlePanel("NBA Lineups Analysis"),
-  
-  sidebarLayout(
-    sidebarPanel(
-      # Use data from `Lineups_Advanced` directly for inputs
-      selectInput("team", "Select Team:", choices = unique(Lineups$Team)),
-      selectInput("sort_by", "Sort By:", choices = names(Lineups)[sapply(Lineups, is.numeric)])
-    ),
-    
-    mainPanel(
-      # Table to display results
-      h3("Select a Lineup"),
-      tableOutput("lineupTable")
+```{r}
+linear_model <- lm(PlusMinus ~ ., data = train_data)
+summary(linear_model)
 
-    )
-  )
+```
+
+```{r}
+library(randomForest)
+rf_model <- randomForest(PlusMinus ~ ., data = train_data, importance = TRUE)
+varImpPlot(rf_model)  # View variable importance
+
+```
+
+```{r}
+library(xgboost)
+X_train <- model.matrix(PlusMinus ~ . - 1, data = train_data)
+y_train <- train_data$PlusMinus
+X_test <- model.matrix(PlusMinus ~ . - 1, data = test_data)
+
+xgb_model <- xgboost(
+  data = X_train, label = y_train, nrounds = 100,
+  objective = "reg:squarederror", verbose = FALSE
 )
 
-# Define server logic
-server <- function(input, output) {
-  output$lineupTable <- renderTable({
-    Lineups %>%
-      filter(Team == input$team) %>%              # Filter by team dynamically
-      arrange(desc(!!sym(input$sort_by))) %>%    # Sort by selected column dynamically
-      select(Lineups, Team, !!sym(input$sort_by)) # Show selected columns
-  })
+```
+
+```{r}
+library(glmnet)
+X <- model.matrix(PlusMinus ~ . - 1, data = train_data)
+y <- train_data$PlusMinus
+
+lasso_model <- cv.glmnet(X, y, alpha = 1)
+coef(lasso_model, s = "lambda.min")  # Important features
+
+```
+
+```{r}
+# Predict on test data
+predictions_rf <- predict(rf_model, test_data)
+predictions_lm <- predict(linear_model, test_data)
+predictions_xgb <- predict(xgb_model, X_test)
+
+# Calculate RMSE
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
 }
 
-# Run the application
-shinyApp(ui = ui, server = server)
+rf_rmse <- rmse(test_data$PlusMinus, predictions_rf)
+lm_rmse <- rmse(test_data$PlusMinus, predictions_lm)
+xgb_rmse <- rmse(test_data$PlusMinus, predictions_xgb)
+
+# Compare RMSE
+cat("Random Forest RMSE:", rf_rmse, "\n")
+cat("Linear Model RMSE:", lm_rmse, "\n")
+cat("XGBoost RMSE:", xgb_rmse, "\n")
 
 ```
