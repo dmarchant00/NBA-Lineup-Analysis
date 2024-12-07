@@ -160,10 +160,11 @@ server <- function(input, output, session) {
     
     # Get the list of players selected in the lineup table
     selected_players <- player_stats$Player
+    selected_teams <- player_stats$Team
     
-    # Filter the pre-calculated percentiles for selected players
+    # Filter the pre-calculated percentiles for selected players, considering teams
     player_percentiles_selected <- player_stats_percentiles %>%
-      filter(Player %in% selected_players)
+      filter(Player %in% selected_players & Team %in% selected_teams)
     
     # Create a list to hold the radar charts for each player
     radar_plots <- lapply(1:nrow(player_percentiles_selected), function(i) {
