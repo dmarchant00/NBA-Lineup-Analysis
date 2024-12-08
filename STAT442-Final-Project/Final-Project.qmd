@@ -17,6 +17,9 @@ library(dplyr)
 library(shiny)
 library(readr)
 library(stringi)
+library(car)
+library(MASS)
+library(caret)
 ```
 
 #### Read in Data
@@ -113,10 +116,70 @@ plot_ly(
 ```
 
 ```{r}
-# Build a simple linear model to predict PlusMinus
-linear_model <- lm(PlusMinus ~ . - Lineups - Team, data = Lineups)
+# Load necessary libraries
+library(car)
+library(MASS)
+library(caret)
 
-# View the summary of the model to see significant variables
+# 1. Build the initial linear model and check for aliased coefficients
+linear_model <- lm(PlusMinus ~ . - Lineups - Team, data = Lineups)
 summary(linear_model)
+
+```
+
+```{r}
+# Check for aliased coefficients
+alias_info <- alias(linear_model)
+print("Aliased coefficients:")
+print(alias_info)
+```
+
+```{r}
+linear_model_updated <- lm(PlusMinus ~ . - Lineups - Team - REB - FTM, data = Lineups)
+summary(linear_model_updated)
+```
+
+```{r}
+# Compute correlation matrix
+cor_matrix <- cor(Lineups[, sapply(Lineups, is.numeric)])
+print(cor_matrix)
+
+```
+
+```{r}
+# Stepwise selection using AIC
+stepwise_model <- step(lm(PlusMinus ~ . - Lineups - Team - REB - FTM, data = Lineups), direction = "both")
+summary(stepwise_model)
+
+```
+
+```{r}
+# Apply Lasso regularization (L1)
+library(glmnet)
+x <- model.matrix(PlusMinus ~ . - Lineups - Team - REB - FTM, data = Lineups)[,-1] # remove intercept
+y <- Lineups$PlusMinus
+lasso_model <- cv.glmnet(x, y, alpha = 1)
+plot(lasso_model)
+best_lambda <- lasso_model$lambda.min
+print(best_lambda)
+
+```
+
+Model Usability Check
+
+```{r}
+# Plot relationships
+# plot(Lineups$X1, Lineups$PlusMinus)
+
+# Check normality of residuals
+model_residuals <- residuals(linear_model_updated)
+qqnorm(model_residuals)
+qqline(model_residuals)
+
+# Plot residuals vs fitted values
+plot(fitted(linear_model_updated), model_residuals)
+
+library(lmtest)
+dwtest(linear_model_updated)
 
 ```
