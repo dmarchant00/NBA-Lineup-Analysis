@@ -70,10 +70,10 @@ Players <- Players %>%
 ### EDA
 
 ```{r}
-p <- ggplot(Lineups, aes(x = `+/-`, y = PIE, text = paste("Lineup:", Lineups, "<br>team:", Team, "<br>+/-:", `+/-`, "<br>PIE:", PIE))) + 
+p <- ggplot(Lineups, aes(x = PlusMinus, y = PIE, text = paste("Lineup:", Lineups, "<br>team:", Team, "<br>+/-:", PlusMinus, "<br>PIE:", PIE))) + 
   geom_point() + 
   labs(title = "Correlation between +/- and PIE", 
-       x = "+/-", 
+       x = "Plus Minus", 
        y = "PIE") + 
   theme_minimal()
 
@@ -113,67 +113,10 @@ plot_ly(
 ```
 
 ```{r}
-set.seed(123)
-train_indices <- sample(1:nrow(Lineups), 0.8 * nrow(Lineups))
-train_data <- Lineups[train_indices, ]
-test_data <- Lineups[-train_indices, ]
+# Build a simple linear model to predict PlusMinus
+linear_model <- lm(PlusMinus ~ . - Lineups - Team, data = Lineups)
 
-```
-
-```{r}
-linear_model <- lm(PlusMinus ~ ., data = train_data)
+# View the summary of the model to see significant variables
 summary(linear_model)
-
-```
-
-```{r}
-library(randomForest)
-rf_model <- randomForest(PlusMinus ~ ., data = train_data, importance = TRUE)
-varImpPlot(rf_model)  # View variable importance
-
-```
-
-```{r}
-library(xgboost)
-X_train <- model.matrix(PlusMinus ~ . - 1, data = train_data)
-y_train <- train_data$PlusMinus
-X_test <- model.matrix(PlusMinus ~ . - 1, data = test_data)
-
-xgb_model <- xgboost(
-  data = X_train, label = y_train, nrounds = 100,
-  objective = "reg:squarederror", verbose = FALSE
-)
-
-```
-
-```{r}
-library(glmnet)
-X <- model.matrix(PlusMinus ~ . - 1, data = train_data)
-y <- train_data$PlusMinus
-
-lasso_model <- cv.glmnet(X, y, alpha = 1)
-coef(lasso_model, s = "lambda.min")  # Important features
-
-```
-
-```{r}
-# Predict on test data
-predictions_rf <- predict(rf_model, test_data)
-predictions_lm <- predict(linear_model, test_data)
-predictions_xgb <- predict(xgb_model, X_test)
-
-# Calculate RMSE
-rmse <- function(actual, predicted) {
-  sqrt(mean((actual - predicted)^2))
-}
-
-rf_rmse <- rmse(test_data$PlusMinus, predictions_rf)
-lm_rmse <- rmse(test_data$PlusMinus, predictions_lm)
-xgb_rmse <- rmse(test_data$PlusMinus, predictions_xgb)
-
-# Compare RMSE
-cat("Random Forest RMSE:", rf_rmse, "\n")
-cat("Linear Model RMSE:", lm_rmse, "\n")
-cat("XGBoost RMSE:", xgb_rmse, "\n")
 
 ```
