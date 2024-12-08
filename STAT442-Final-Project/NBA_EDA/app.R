@@ -6,14 +6,14 @@ library(readxl)
 library(DT) # data table
 library(readr) # read in csv data
 library(stringi) # remove accent symbols on letters
-library(fmsb) # radar chart
 library(scales) # percentile calculations
-library(plotly)
+library(plotly) # radar chart
+library(shinythemes)  # Themes
 
 # Define UI for the application
 ui <- fluidPage(
   theme = shinythemes::shinytheme("journal"), 
-  titlePanel("NBA Lineups and Player Stats Analysis"),
+  titlePanel("NBA Lineups Analysis"),
   
   mainPanel(
     tabsetPanel(
@@ -33,12 +33,35 @@ ui <- fluidPage(
                # Moving the inputs inside the tab
                selectInput("team", "Select Team:", choices = NULL),
                selectInput("sort_by", "Sort By:", choices = NULL),
-               
                h3("Lineup Data"),
                DTOutput("lineupTable"),  # Interactive table with selectable rows
-               
                h3("Player Stats for Selected Lineup"),
                tableOutput("playerTable")  # Table for displaying player stats
+      ),
+      tabPanel("Lineup Builder",
+               h3("Build Your Custom NBA Lineup"),
+               p("Select 5 total players across positions."),
+               
+               # Layout for positioning the selectors and total metric
+               fluidRow(
+                 # Left side: Player Selectors
+                 column(6,
+                        selectInput("Guard", "Select Guard (PG/SG):", choices = NULL, multiple = TRUE),
+                        selectInput("Forward", "Select Forward (SF/PF):", choices = NULL, multiple = TRUE),
+                        selectInput("Center", "Select Center (C):", choices = NULL, multiple = TRUE),
+                        actionButton("build_lineup", "Build Lineup"),
+                        tableOutput("customLineup")
+                 ),
+                 
+                 # Right side: Metric Selection and Total
+                 column(6,
+                        # Metric Selector
+                        selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
+                        
+                        # Total Sum of the Selected Metric
+                        tableOutput("metricTotal")
+                 )
+               )
       ),
       tabPanel("Lineup Composition",
                h3("Radar Chart of Player Stats Percentiles"),
@@ -51,76 +74,53 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output, session) {
   
-  # Read in Data
-  Lineups <- readxl::read_excel("Lineups.xlsx")
-  Players <- readxl::read_excel("Players.xlsx")
-  Players_Info <- readr::read_csv("Players.Info.csv")
-  
-  # Clean Data
-  Players <- Players %>%
-    mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player)) %>%
+  # Read and clean data
+  Lineups <- read_excel("Lineups.xlsx")
+  Players <- read_excel("Players.xlsx") %>% 
     mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
+  Advanced <- read_excel("Advanced.xlsx") %>% 
+    select(Player, Team, Pos, PER, OWS, DWS, WS, OBPM, DBPM, BPM, VORP, Awards) %>% 
+    mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
+  Players.custom <- left_join(Players, Advanced, by = c("Player", "Team"))
   
-  # Pre-calculate percentiles for all players and store it
-  player_stats_percentiles <- Players %>%
-    mutate(
-      PTS = percent_rank(PTS) * 100,
-      AST = percent_rank(AST) * 100,
-      REB = percent_rank(REB) * 100,
-      `FG%` = percent_rank(`FG%`) * 100,
-      `3P%` = percent_rank(`3P%`) * 100,
-      STL = percent_rank(STL) * 100,
-      BLK = percent_rank(BLK) * 100
-    )
+  # Reshape player names to match names in lineups
+  Players <- Players %>%
+    mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player))
   
-  # Reactive to store player stats for the selected lineup
+  # Reactive Values
   selected_player_stats <- reactiveVal(NULL)
+  lineup_source <- reactiveVal(NULL)  # Track source of lineup selection
   
-  # Update team and sort dropdown choices dynamically
+  # Update dropdown choices
   observe({
     updateSelectInput(session, "team", choices = c("All Teams", unique(Lineups$Team)))
     updateSelectInput(session, "sort_by", choices = names(Lineups)[sapply(Lineups, is.numeric)])
+    updateSelectInput(session, "Guard", choices = Players.custom$Player[Players.custom$Pos %in% c("PG", "SG")])
+    updateSelectInput(session, "Forward", choices = Players.custom$Player[Players.custom$Pos %in% c("SF", "PF")])
+    updateSelectInput(session, "Center", choices = Players.custom$Player[Players.custom$Pos == "C"])
   })
   
-  # Render the lineup table
+  # Lineup Analysis
   output$lineupTable <- renderDT({
-    req(input$team, input$sort_by)  # Ensure inputs are available
-    
-    # Filter data based on team selection
-    filtered_data <- if (input$team == "All Teams") {
-      Lineups
-    } else {
-      Lineups %>% filter(Team == input$team)
-    }
-    
-    # Arrange and display data
-    filtered_data <- filtered_data %>%
-      arrange(desc(!!sym(input$sort_by))) %>%
-      select(Lineups, Team, !!sym(input$sort_by))
-    
-    datatable(filtered_data, selection = "single", options = list(pageLength = 5))
+    req(input$team, input$sort_by)
+    filtered_data <- if (input$team == "All Teams") Lineups else Lineups %>% filter(Team == input$team)
+    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
   })
+  
   
   # Render the player stats for the selected lineup
   output$playerTable <- renderTable({
-    selected <- input$lineupTable_rows_selected  # Get the selected row index
-    req(selected)
-    
-    filtered_data <- if (input$team == "All Teams") {
-      Lineups
-    } else {
-      Lineups %>% filter(Team == input$team)
-    }
+    req(input$lineupTable_rows_selected)
+    selected <- input$lineupTable_rows_selected
     
     # Extract the selected lineup
-    selected_lineup <- filtered_data %>%
-      filter(Team == input$team | input$team == "All Teams") %>%
-      arrange(desc(!!sym(input$sort_by))) %>%
-      slice(selected) %>%
+    selected_lineup <- Lineups %>% 
+      arrange(desc(!!sym(input$sort_by))) %>% 
+      slice(selected) %>% 
       pull(Lineups)
     
     # Extract the team of the selected lineup
-    selected_team <- filtered_data %>%
+    selected_team <- Lineups %>%
       arrange(desc(!!sym(input$sort_by))) %>%
       slice(selected) %>%
       pull(Team)
@@ -140,20 +140,41 @@ server <- function(input, output, session) {
     player_stats <- Players %>%
       filter(Player %in% players) %>%
       filter(
-        # For duplicate players, match by selected team; otherwise include all
         (Player %in% duplicate_players & Team == selected_team) |
           !(Player %in% duplicate_players)
       )
     
     # Store the player stats for the selected lineup
     selected_player_stats(player_stats)
-    
+    lineup_source("analysis")  # Set source to lineup analysis
     player_stats
+  })
+  
+  # Lineup Builder - Custom Lineup
+  observeEvent(input$build_lineup, {
+    req(input$Guard, input$Forward, input$Center)
+    selected_players <- c(input$Guard, input$Forward, input$Center)
+    custom_lineup <- Players.custom %>% filter(Player %in% selected_players)
+    selected_player_stats(custom_lineup)
+    lineup_source("builder")  # Set source to lineup builder
+    output$customLineup <- renderTable(custom_lineup)
+  })
+  
+  # Show Total Metric for the Selected Metric
+  output$metricTotal <- renderTable({
+    req(selected_player_stats(), input$metric)
+    custom_lineup <- selected_player_stats()
+    
+    # Calculate the sum of the selected metric
+    total_metric <- sum(custom_lineup[[input$metric]], na.rm = TRUE)
+    
+    # Create a data frame to display the sum
+    data.frame(Metric = input$metric, Total = total_metric)
   })
   
   # Render radar charts for each player in the selected lineup
   output$radarChart <- renderUI({
-    req(selected_player_stats())  # Ensure data is available
+    req(selected_player_stats() )  # Ensure data is available
     
     # Get the selected player stats
     player_stats <- selected_player_stats()
@@ -161,6 +182,24 @@ server <- function(input, output, session) {
     # Get the list of players selected in the lineup table
     selected_players <- player_stats$Player
     selected_teams <- player_stats$Team
+    
+    # Get the source of the lineup
+    source <- lineup_source()
+    
+    # Select the appropriate dataset based on the source
+    dataset <- if (source == "builder") Players.custom else Players
+    
+    # Grab percentile of players stats
+    player_stats_percentiles <- dataset %>%
+      mutate(
+        PTS = percent_rank(PTS) * 100,
+        AST = percent_rank(AST) * 100,
+        REB = percent_rank(REB) * 100,
+        `FG%` = percent_rank(`FG%`) * 100,
+        `3P%` = percent_rank(`3P%`) * 100,
+        STL = percent_rank(STL) * 100,
+        BLK = percent_rank(BLK) * 100
+      )
     
     # Filter the pre-calculated percentiles for selected players, considering teams
     player_percentiles_selected <- player_stats_percentiles %>%
@@ -175,13 +214,8 @@ server <- function(input, output, session) {
       radar_data <- data.frame(
         stats = c("PTS", "AST", "REB", "FG%", "3P%", "STL", "BLK"),
         value = as.numeric(player_data),
-        max = rep(100, 7),
-        min = rep(0, 7)
+        max = 100, min = 0
       )
-      
-      # Prepare the hover text
-      hover_text <- paste(radar_data$stats, ": ", selected_player_stats()[i, radar_data$stats], " (Percentile: ",
-                          round(player_data, 1), "%)", sep = "")
       
       # Create a radar chart using Plotly
       radar_plot <- plot_ly(
@@ -192,7 +226,8 @@ server <- function(input, output, session) {
         name = player_percentiles_selected$Player[i],
         mode = 'lines+markers',
         hoverinfo = 'text',  # Show custom text on hover
-        hovertext = hover_text  # Display the stat and percentile on hover
+        hovertext = paste(radar_data$stats, ": ", selected_player_stats()[i, radar_data$stats], " (Percentile: ",
+                          round(player_data, 1), "%)", sep = "")  # Display the stat and percentile on hover
       ) %>%
         layout(
           polar = list(
