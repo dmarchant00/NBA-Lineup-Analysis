@@ -122,7 +122,7 @@ library(MASS)
 library(caret)
 
 # 1. Build the initial linear model and check for aliased coefficients
-linear_model <- lm(PlusMinus ~ . - Lineups - Team, data = Lineups)
+linear_model <- lm(PlusMinus ~ . - Lineups - Team - Min, data = Lineups)
 summary(linear_model)
 
 ```
@@ -135,14 +135,18 @@ print(alias_info)
 ```
 
 ```{r}
-linear_model_updated <- lm(PlusMinus ~ . - Lineups - Team - REB - FTM, data = Lineups)
+linear_model_updated <- lm(PlusMinus ~ . - Lineups - Team - REB - FTM - Min, data = Lineups)
 summary(linear_model_updated)
 ```
 
 ```{r}
 # Compute correlation matrix
 cor_matrix <- cor(Lineups[, sapply(Lineups, is.numeric)])
-print(cor_matrix)
+
+# Create a correlation plot
+library(corrplot)
+corrplot(cor_matrix, method = "circle", col = colorRampPalette(c("blue", "white", "red"))(200))
+
 
 ```
 
@@ -156,7 +160,7 @@ summary(stepwise_model)
 ```{r}
 # Apply Lasso regularization (L1)
 library(glmnet)
-x <- model.matrix(PlusMinus ~ . - Lineups - Team - REB - FTM, data = Lineups)[,-1] # remove intercept
+x <- model.matrix(PlusMinus ~ . - Lineups - Team - REB - FTM - Min, data = Lineups)[,-1] # remove intercept
 y <- Lineups$PlusMinus
 lasso_model <- cv.glmnet(x, y, alpha = 1)
 plot(lasso_model)
@@ -182,4 +186,8 @@ plot(fitted(linear_model_updated), model_residuals)
 library(lmtest)
 dwtest(linear_model_updated)
 
+```
+
+```{r}
+summary(linear_model_updated)
 ```
