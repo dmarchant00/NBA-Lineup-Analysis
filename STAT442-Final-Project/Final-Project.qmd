@@ -17,6 +17,9 @@ library(dplyr)
 library(shiny)
 library(readr)
 library(stringi)
+library(car)
+library(MASS)
+library(caret)
 ```
 
 #### Read in Data
@@ -70,10 +73,10 @@ Players <- Players %>%
 ### EDA
 
 ```{r}
-p <- ggplot(Lineups, aes(x = `+/-`, y = PIE, text = paste("Lineup:", Lineups, "<br>team:", Team, "<br>+/-:", `+/-`, "<br>PIE:", PIE))) + 
+p <- ggplot(Lineups, aes(x = PlusMinus, y = PIE, text = paste("Lineup:", Lineups, "<br>team:", Team, "<br>+/-:", PlusMinus, "<br>PIE:", PIE))) + 
   geom_point() + 
   labs(title = "Correlation between +/- and PIE", 
-       x = "+/-", 
+       x = "Plus Minus", 
        y = "PIE") + 
   theme_minimal()
 
@@ -113,67 +116,78 @@ plot_ly(
 ```
 
 ```{r}
-set.seed(123)
-train_indices <- sample(1:nrow(Lineups), 0.8 * nrow(Lineups))
-train_data <- Lineups[train_indices, ]
-test_data <- Lineups[-train_indices, ]
+# Load necessary libraries
+library(car)
+library(MASS)
+library(caret)
 
-```
-
-```{r}
-linear_model <- lm(PlusMinus ~ ., data = train_data)
+# 1. Build the initial linear model and check for aliased coefficients
+linear_model <- lm(PlusMinus ~ . - Lineups - Team - Min, data = Lineups)
 summary(linear_model)
 
 ```
 
 ```{r}
-library(randomForest)
-rf_model <- randomForest(PlusMinus ~ ., data = train_data, importance = TRUE)
-varImpPlot(rf_model)  # View variable importance
+# Check for aliased coefficients
+alias_info <- alias(linear_model)
+print("Aliased coefficients:")
+print(alias_info)
+```
+
+```{r}
+linear_model_updated <- lm(PlusMinus ~ . - Lineups - Team - REB - FTM - Min, data = Lineups)
+summary(linear_model_updated)
+```
+
+```{r}
+# Compute correlation matrix
+cor_matrix <- cor(Lineups[, sapply(Lineups, is.numeric)])
+
+# Create a correlation plot
+library(corrplot)
+corrplot(cor_matrix, method = "circle", col = colorRampPalette(c("blue", "white", "red"))(200))
+
 
 ```
 
 ```{r}
-library(xgboost)
-X_train <- model.matrix(PlusMinus ~ . - 1, data = train_data)
-y_train <- train_data$PlusMinus
-X_test <- model.matrix(PlusMinus ~ . - 1, data = test_data)
-
-xgb_model <- xgboost(
-  data = X_train, label = y_train, nrounds = 100,
-  objective = "reg:squarederror", verbose = FALSE
-)
+# Stepwise selection using AIC
+stepwise_model <- step(lm(PlusMinus ~ . - Lineups - Team - REB - FTM, data = Lineups), direction = "both")
+summary(stepwise_model)
 
 ```
 
 ```{r}
+# Apply Lasso regularization (L1)
 library(glmnet)
-X <- model.matrix(PlusMinus ~ . - 1, data = train_data)
-y <- train_data$PlusMinus
+x <- model.matrix(PlusMinus ~ . - Lineups - Team - REB - FTM - Min, data = Lineups)[,-1] # remove intercept
+y <- Lineups$PlusMinus
+lasso_model <- cv.glmnet(x, y, alpha = 1)
+plot(lasso_model)
+best_lambda <- lasso_model$lambda.min
+print(best_lambda)
 
-lasso_model <- cv.glmnet(X, y, alpha = 1)
-coef(lasso_model, s = "lambda.min")  # Important features
+```
+
+Model Usability Check
+
+```{r}
+# Plot relationships
+# plot(Lineups$X1, Lineups$PlusMinus)
+
+# Check normality of residuals
+model_residuals <- residuals(linear_model_updated)
+qqnorm(model_residuals)
+qqline(model_residuals)
+
+# Plot residuals vs fitted values
+plot(fitted(linear_model_updated), model_residuals)
+
+library(lmtest)
+dwtest(linear_model_updated)
 
 ```
 
 ```{r}
-# Predict on test data
-predictions_rf <- predict(rf_model, test_data)
-predictions_lm <- predict(linear_model, test_data)
-predictions_xgb <- predict(xgb_model, X_test)
-
-# Calculate RMSE
-rmse <- function(actual, predicted) {
-  sqrt(mean((actual - predicted)^2))
-}
-
-rf_rmse <- rmse(test_data$PlusMinus, predictions_rf)
-lm_rmse <- rmse(test_data$PlusMinus, predictions_lm)
-xgb_rmse <- rmse(test_data$PlusMinus, predictions_xgb)
-
-# Compare RMSE
-cat("Random Forest RMSE:", rf_rmse, "\n")
-cat("Linear Model RMSE:", lm_rmse, "\n")
-cat("XGBoost RMSE:", xgb_rmse, "\n")
-
+summary(linear_model_updated)
 ```
