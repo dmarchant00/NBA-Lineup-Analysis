@@ -35,9 +35,9 @@ ui <- fluidPage(
                h3("Lineup Data"),
                DTOutput("lineupTable"),
                h3("Player Stats for Selected Lineup"),
-               tableOutput("playerTable"),
+               DTOutput("playerTable"),
                h5("Stat Definitions"),
-               p("GP - Games Played   Min - Minutes Played   OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
+               p("GP - Games Played   Min - Minutes Played  OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
       ),
       tabPanel("Lineup Builder",
                h3("Build Your Custom NBA Lineup"),
@@ -54,10 +54,8 @@ ui <- fluidPage(
                         selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
                         tableOutput("metricTotal")
                  )
+               )
                ),
-               h5("Stat Definitions"),
-               p("GP - Games Played   Min - Minutes Played  OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
-      ),
       tabPanel("Lineup Composition",
                h3("Radar Chart of Player Stats Percentiles"),
                uiOutput("radarChart"),
@@ -106,7 +104,7 @@ server <- function(input, output, session) {
   
   
   # Render the player stats for the selected lineup
-  output$playerTable <- renderTable({
+  output$playerTable <- renderDT({
     req(input$lineupTable_rows_selected)
     selected <- input$lineupTable_rows_selected
     
@@ -144,7 +142,18 @@ server <- function(input, output, session) {
     # Store the player stats for the selected lineup
     selected_player_stats(player_stats)
     lineup_source("analysis")  # Set source to lineup analysis
-    player_stats
+    
+    # Render the data as a DT datatable
+    datatable(
+      player_stats,
+      options = list(
+      # Display 5 rows per page
+        autoWidth = TRUE,  # Adjust column widths automatically
+        dom = 'tip',  # Only show table with pagination and search
+        columnDefs = list(list(targets = "_all", className = "dt-center"))  # Center-align columns
+      ),
+      rownames = FALSE  # Disable row names
+    )
   })
   
   # Lineup Builder
