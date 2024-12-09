@@ -30,42 +30,39 @@ ui <- fluidPage(
                )
       ),
       tabPanel("Lineup Analysis",
-               # Moving the inputs inside the tab
                selectInput("team", "Select Team:", choices = NULL),
                selectInput("sort_by", "Sort By:", choices = NULL),
                h3("Lineup Data"),
-               DTOutput("lineupTable"),  # Interactive table with selectable rows
+               DTOutput("lineupTable"),
                h3("Player Stats for Selected Lineup"),
-               tableOutput("playerTable")  # Table for displaying player stats
+               tableOutput("playerTable"),
+               h5("Stat Definitions"),
+               p("GP - Games Played   Min - Minutes Played   OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
       ),
       tabPanel("Lineup Builder",
                h3("Build Your Custom NBA Lineup"),
                p("Select 5 total players across positions."),
-               
-               # Layout for positioning the selectors and total metric
                fluidRow(
-                 # Left side: Player Selectors
                  column(6,
                         selectInput("Guard", "Select Guard (PG/SG):", choices = NULL, multiple = TRUE),
                         selectInput("Forward", "Select Forward (SF/PF):", choices = NULL, multiple = TRUE),
                         selectInput("Center", "Select Center (C):", choices = NULL, multiple = TRUE),
                         actionButton("build_lineup", "Build Lineup"),
-                        tableOutput("customLineup")
+                        DTOutput("customLineup")
                  ),
-                 
-                 # Right side: Metric Selection and Total
                  column(6,
-                        # Metric Selector
                         selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
-                        
-                        # Total Sum of the Selected Metric
                         tableOutput("metricTotal")
                  )
-               )
+               ),
+               h5("Stat Definitions"),
+               p("GP - Games Played   Min - Minutes Played  OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
       ),
       tabPanel("Lineup Composition",
                h3("Radar Chart of Player Stats Percentiles"),
-               uiOutput("radarChart")  # Radar chart for selected lineup
+               uiOutput("radarChart"),
+               h5("Stat Definitions"),
+               p("GP - Games Played   Min - Minutes Played   OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
       )
     )
   )
@@ -150,15 +147,32 @@ server <- function(input, output, session) {
     player_stats
   })
   
-  # Lineup Builder - Custom Lineup
+  # Lineup Builder
   observeEvent(input$build_lineup, {
     req(input$Guard, input$Forward, input$Center)
     selected_players <- c(input$Guard, input$Forward, input$Center)
     custom_lineup <- Players.custom %>% filter(Player %in% selected_players)
+    
     selected_player_stats(custom_lineup)
     lineup_source("builder")  # Set source to lineup builder
-    output$customLineup <- renderTable(custom_lineup)
+    
+    # Update the customLineup table using renderDT
+    output$customLineup <- renderDT({
+      datatable(
+        custom_lineup,
+        options = list(
+          pageLength = 5,         # Display 5 rows per page
+          autoWidth = TRUE,      # Automatically adjust column widths
+          dom = 'tip'            # Show table and pagination controls
+        ),
+        selection = "none",    # No row selection
+        rownames = FALSE       # Hide row names
+      )
+    })
   })
+  
+  
+  
   
   # Show Total Metric for the Selected Metric
   output$metricTotal <- renderTable({
@@ -254,16 +268,22 @@ server <- function(input, output, session) {
       end_idx <- min(row_idx * 3, length(radar_plots))
       
       # Create a fluidRow with 3 columns containing the radar charts
-      row_columns <- list()
-      for (i in start_idx:end_idx) {
-        row_columns <- append(row_columns, list(column(4, radar_plots[[i]])))
-      }
-      
-      # Ensure that the row has up to 3 columns
-      fluidRow(row_columns)
+      fluidRow(
+        lapply(start_idx:end_idx, function(chart_idx) {
+          column(width = 4, plotlyOutput(paste0("radarChart_", chart_idx)))
+        })
+      )
     })
     
-    # Render each plot individually in a vertical layout
+    # Render the radar charts in each slot
+    for (i in seq_along(radar_plots)) {
+      local({
+        idx <- i
+        output[[paste0("radarChart_", idx)]] <- renderPlotly({ radar_plots[[idx]] })
+      })
+    }
+    
+    # Combine the rows into a single UI object
     do.call(tagList, radar_ui)
   })
 }
