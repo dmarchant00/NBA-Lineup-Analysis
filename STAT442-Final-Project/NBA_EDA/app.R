@@ -9,6 +9,7 @@ library(stringi) # remove accent symbols on letters
 library(scales) # percentile calculations
 library(plotly) # radar chart
 library(shinythemes)  # Themes
+library(shinyWidgets)
 
 # Define UI for the application
 ui <- fluidPage(
@@ -30,8 +31,12 @@ ui <- fluidPage(
                )
       ),
       tabPanel("Lineup Analysis",
-               selectInput("team", "Select Team:", choices = NULL),
-               selectInput("sort_by", "Sort By:", choices = NULL),
+               pickerInput(
+                 inputId = "team",label = "Select Team:",choices = NULL, choicesOpt = list(content = NULL)
+               ),
+               pickerInput(
+                 inputId = "sort_by",label = "Sort By:",choices = NULL, choicesOpt = list(content = NULL)
+               ),
                h3("Lineup Data"),
                DTOutput("lineupTable"),
                h3("Player Stats for Selected Lineup"),
@@ -48,6 +53,7 @@ ui <- fluidPage(
                         selectInput("Forward", "Select Forward (SF/PF):", choices = NULL, multiple = TRUE),
                         selectInput("Center", "Select Center (C):", choices = NULL, multiple = TRUE),
                         actionButton("build_lineup", "Build Lineup"),
+                        actionButton("reset_lineup", "Reset Lineup", icon = icon("refresh")),
                         DTOutput("customLineup")
                  ),
                  column(6,
@@ -59,9 +65,7 @@ ui <- fluidPage(
       tabPanel("Lineup Composition",
                h3("Radar Chart of Player Stats Percentiles"),
                uiOutput("radarChart"),
-               h5("Stat Definitions"),
-               p("GP - Games Played   Min - Minutes Played   OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
-      )
+              )
     )
   )
 )
@@ -88,8 +92,8 @@ server <- function(input, output, session) {
   
   # Update dropdown choices
   observe({
-    updateSelectInput(session, "team", choices = c("All Teams", unique(Lineups$Team)))
-    updateSelectInput(session, "sort_by", choices = names(Lineups)[sapply(Lineups, is.numeric)])
+    updatePickerInput(session, "team", choices = c("All Teams", unique(Lineups$Team)))
+    updatePickerInput(session, "sort_by", choices = names(Lineups)[sapply(Lineups, is.numeric)])
     updateSelectInput(session, "Guard", choices = Players.custom$Player[Players.custom$Pos %in% c("PG", "SG")])
     updateSelectInput(session, "Forward", choices = Players.custom$Player[Players.custom$Pos %in% c("SF", "PF")])
     updateSelectInput(session, "Center", choices = Players.custom$Player[Players.custom$Pos == "C"])
@@ -99,7 +103,7 @@ server <- function(input, output, session) {
   output$lineupTable <- renderDT({
     req(input$team, input$sort_by)
     filtered_data <- if (input$team == "All Teams") Lineups else Lineups %>% filter(Team == input$team)
-    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
+    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, Min, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
   })
   
   
@@ -180,8 +184,16 @@ server <- function(input, output, session) {
     })
   })
   
-  
-  
+  # Server logic for resetting lineup builder inputs
+  observeEvent(input$reset_lineup, {
+    # Reset select inputs to NULL
+    updateSelectInput(session, "Guard", selected = character(0))
+    updateSelectInput(session, "Forward", selected = character(0))
+    updateSelectInput(session, "Center", selected = character(0))
+    
+    # Clear custom lineup table
+    selected_player_stats(NULL)
+  })
   
   # Show Total Metric for the Selected Metric
   output$metricTotal <- renderTable({
@@ -191,8 +203,10 @@ server <- function(input, output, session) {
     # Calculate the sum of the selected metric
     total_metric <- sum(custom_lineup[[input$metric]], na.rm = TRUE)
     
+    league_average <- mean(Players.custom[[input$metric]], na.rm = TRUE) * 5
+    
     # Create a data frame to display the sum
-    data.frame(Metric = input$metric, Total = total_metric)
+    data.frame(Metric = input$metric, `Lineup-Total` = total_metric, `League-Average` = league_average)
   })
   
   # Render radar charts for each player in the selected lineup
