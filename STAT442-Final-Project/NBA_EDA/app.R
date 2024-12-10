@@ -103,7 +103,7 @@ server <- function(input, output, session) {
   output$lineupTable <- renderDT({
     req(input$team, input$sort_by)
     filtered_data <- if (input$team == "All Teams") Lineups else Lineups %>% filter(Team == input$team)
-    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, Min, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
+    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
   })
   
   
@@ -112,14 +112,16 @@ server <- function(input, output, session) {
     req(input$lineupTable_rows_selected)
     selected <- input$lineupTable_rows_selected
     
+    filtered_data <- if (input$team == "All Teams") Lineups else Lineups %>% filter(Team == input$team)
+    
     # Extract the selected lineup
-    selected_lineup <- Lineups %>% 
+    selected_lineup <- filtered_data %>% 
       arrange(desc(!!sym(input$sort_by))) %>% 
       slice(selected) %>% 
       pull(Lineups)
     
     # Extract the team of the selected lineup
-    selected_team <- Lineups %>%
+    selected_team <- filtered_data %>%
       arrange(desc(!!sym(input$sort_by))) %>%
       slice(selected) %>%
       pull(Team)
