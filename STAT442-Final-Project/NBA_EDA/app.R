@@ -11,67 +11,187 @@ library(plotly) # radar chart
 library(shinythemes)  # Themes
 library(shinyWidgets)
 
-# Define UI for the application
-ui <- fluidPage(
-  theme = shinythemes::shinytheme("journal"), 
-  titlePanel("NBA Lineups Analysis"),
+ui <- navbarPage(
+  title = "NBA Lineups Analysis",
+  theme = shinythemes::shinytheme("cosmo"),  # Sleek theme
+  id = "navbar",
   
-  mainPanel(
-    tabsetPanel(
-      tabPanel("Home",
-               h2("Welcome to the NBA Lineup Analysis App"),
-               p("This app allows you to analyze NBA lineups and player stats. You can filter and sort lineups by team and other metrics."),
-               p("Select a team and sorting option in the 'Lineup Analysis' tab to get started."),
-               br(),
-               p("To use the app, follow these steps:"),
-               tags$ul(
-                 tags$li("Select a team or choose 'All Teams' to view all teams."),
-                 tags$li("Choose a sorting criteria based on numeric values."),
-                 tags$li("Click on a lineup in the table to view detailed player stats.")
-               )
+  # Home Page
+  tabPanel(
+    "Home",
+    fluidPage(
+      div(
+        class = "jumbotron text-center",
+        style = "background: linear-gradient(to right, #0052D4, #65C7F7); color: white; padding: 30px;",
+        h1("NBA Lineups Analysis"),
+        p("Your one-stop platform for exploring and building NBA lineups!")
       ),
-      tabPanel("Lineup Analysis",
-               pickerInput(
-                 inputId = "team",label = "Select Team:",choices = NULL, choicesOpt = list(content = NULL)
-               ),
-               pickerInput(
-                 inputId = "sort_by",label = "Sort By:",choices = NULL, choicesOpt = list(content = NULL)
-               ),
-               h3("Lineup Data"),
-               DTOutput("lineupTable"),
-               h3("Player Stats for Selected Lineup"),
-               DTOutput("playerTable"),
-               h5("Stat Definitions"),
-               p("GP - Games Played   Min - Minutes Played  OffRtg - Offensive Rating (points scored per 100 possessions)   DefRtg - Defensive Rating (points allowed per 100 possessions)   NetRtg - Net Rating (Offensive Rating - Defensive Rating)   AST% - Assist Percentage (percentage of teammate field goals assisted while on the court)   AST/TO - Assist to Turnover Ratio   AST Ratio - Assist Ratio (assists per 100 possessions)   OREB% - Offensive Rebound Percentage   DREB% - Defensive Rebound Percentage   REB% - Rebound Percentage   TO Ratio - Turnover Ratio (turnovers per 100 possessions)   eFG% - Effective Field Goal Percentage (accounts for the added value of 3-point shots)   TS% - True Shooting Percentage (measures shooting efficiency considering 2-pointers, 3-pointers, and free throws)   PACE - Pace (number of possessions per 48 minutes)   PIE - Player Impact Estimate (percentage of game events a player is involved in)   PTS - Points   FGM - Field Goals Made   FGA - Field Goals Attempted   FG% - Field Goal Percentage   3PM - Three-Point Field Goals Made   3PA - Three-Point Field Goals Attempted   3P% - Three-Point Field Goal Percentage   FTM - Free Throws Made   FTA - Free Throws Attempted   FT% - Free Throw Percentage   OREB - Offensive Rebounds   DREB - Defensive Rebounds   REB - Total Rebounds   AST - Assists   TOV - Turnovers   STL - Steals   BLK - Blocks   BLKA - Blocked Attempts   PF - Personal Fouls   PFD - Personal Fouls Drawn   +/- - Plus/Minus (team point differential while on the court)")
-      ),
-      tabPanel("Lineup Builder",
-               h3("Build Your Custom NBA Lineup"),
-               p("Select 5 total players across positions."),
-               fluidRow(
-                 column(6,
-                        selectInput("Guard", "Select Guard (PG/SG):", choices = NULL, multiple = TRUE),
-                        selectInput("Forward", "Select Forward (SF/PF):", choices = NULL, multiple = TRUE),
-                        selectInput("Center", "Select Center (C):", choices = NULL, multiple = TRUE),
-                        actionButton("build_lineup", "Build Lineup"),
-                        actionButton("reset_lineup", "Reset Lineup", icon = icon("refresh")),
-                        DTOutput("customLineup")
-                 ),
-                 column(6,
-                        selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
-                        tableOutput("metricTotal")
-                 )
-               )
-               ),
-      tabPanel("Lineup Composition",
-               h3("Radar Chart of Player Stats Percentiles"),
-               uiOutput("radarChart"),
-              )
+      fluidRow(
+        column(
+          4,
+          div(
+            class = "card text-center",
+            style = "padding: 20px; background-color: #f7f7f7; border-radius: 10px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);",
+            h3("Analyze Lineups"),
+            p("Dive into performance metrics for your favorite teams."),
+            icon("chart-line", style = "font-size: 40px; color: #0052D4;")
+          )
+        ),
+        column(
+          4,
+          div(
+            class = "card text-center",
+            style = "padding: 20px; background-color: #f7f7f7; border-radius: 10px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);",
+            h3("Build Custom Lineups"),
+            p("Create dream lineups with real NBA data."),
+            icon("basketball-ball", style = "font-size: 40px; color: #65C7F7;")
+          )
+        ),
+        column(
+          4,
+          div(
+            class = "card text-center",
+            style = "padding: 20px; background-color: #f7f7f7; border-radius: 10px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);",
+            h3("Explore Insights"),
+            p("Analyze trends with advanced EDA tools."),
+            icon("chart-bar", style = "font-size: 40px; color: #1C1C1C;")
+          )
+        )
+      )
     )
+  ),
+  
+  # Lineup Analysis
+  tabPanel(
+    "Lineup Analysis",
+    sidebarLayout(
+      sidebarPanel(
+        h4("Filter Lineups"),
+        pickerInput(
+          inputId = "team",label = "Select Team:",choices = NULL, choicesOpt = list(content = NULL)
+        ),
+        pickerInput(
+          inputId = "sort_by",label = "Sort By:",choices = NULL, choicesOpt = list(content = NULL)
+        ),
+        actionButton("analyze", "Analyze")
+      ),
+      mainPanel(
+        h3("Lineup Data"),
+        DTOutput("lineupTable"),
+        br(),
+        h4("Player Stats"),
+        DTOutput("playerTable")
+      )
+    )
+  ),
+  
+  # Lineup Builder
+  tabPanel(
+    "Lineup Builder",
+    fluidPage(
+      fluidRow(
+        column(
+          6,
+          h3("Select Players"),
+          selectInput("Guard", "Select Guards (PG/SG):", choices = NULL, multiple = TRUE),
+          selectInput("Forward", "Select Forwards (SF/PF):", choices = NULL, multiple = TRUE),
+          selectInput("Center", "Select Centers (C):", choices = NULL, multiple = TRUE),
+          actionButton("build_lineup", "Build Lineup"),
+          actionButton("reset_lineup", "Reset Lineup", icon = icon("refresh"))
+        ),
+        column(
+          6,
+          h3("Custom Lineup Metrics"),
+          selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
+          tableOutput("metricTotal")
+        )
+      ),
+      br(),
+      h4("Custom Lineup Data"),
+      DTOutput("customLineup")
+    )
+  ),
+  
+  tabPanel("Lineup Composition",
+           h3("Radar Chart of Player Stats Percentiles"),
+           uiOutput("radarChart"),  # This renders the radar chart output
+           tags$p(tags$small("Stat Definitions"))
+  ),
+  
+  # EDA
+  tabPanel(
+    "EDA",
+    fluidPage(
+      sidebarLayout(
+        sidebarPanel(
+          h4("Exploratory Data Analysis"),
+          selectInput("eda_variable", "Variable for Histogram:", choices = NULL),
+          selectInput("eda_corr_var1", "Correlation Variable 1:", choices = NULL),
+          selectInput("eda_corr_var2", "Correlation Variable 2:", choices = NULL),
+          actionButton("eda_corr_button", "Generate Correlation")
+        ),
+        mainPanel(
+          h4("Summary Statistics"),
+          tableOutput("eda_summary"),
+          h4("Histogram"),
+          plotOutput("eda_histogram"),
+          h4("Correlation Plot"),
+          plotOutput("eda_corr_plot")
+        )
+      )
+    )
+  ),
+  
+  # Footer
+  tags$footer(
+    style = "text-align: center; padding: 10px; background: #f1f1f1; border-top: 1px solid #ccc; color: #555;",
+    "© 2024 NBA Lineups Analysis | Drew Marchant and Joseph Uttecht"
   )
 )
 
-# Define server logic
+
 server <- function(input, output, session) {
+  
+  # Stat descriptions for tooltips
+  stat_descriptions <- list(
+    PER = "Player Efficiency Rating",
+    OWS = "Offensive Win Shares",
+    DWS = "Defensive Win Shares",
+    WS = "Win Shares",
+    OBPM = "Offensive Box Plus-Minus",
+    DBPM = "Defensive Box Plus-Minus",
+    BPM = "Box Plus-Minus",
+    VORP = "Value Over Replacement Player",
+    Player = "The name of the player",
+    Team = "The team the player is associated with",
+    Age = "The player's age",
+    GP = "Games Played - Number of games the player has participated in",
+    W = "Wins - The number of games won by the player's team",
+    L = "Losses - The number of games lost by the player's team",
+    Min = "Minutes - The total minutes the player has played",
+    PTS = "Points - The total points scored by the player",
+    FGM = "Field Goals Made - The number of field goals made by the player",
+    FGA = "Field Goals Attempted - The number of field goals attempted by the player",
+    `FG%` = "Field Goal Percentage - The percentage of successful field goals made (FGM / FGA)",
+    `3PM` = "Three-Point Field Goals Made - The number of three-point shots made",
+    `3PA` = "Three-Point Field Goals Attempted - The number of three-point shots attempted by the player",
+    `3P%` = "Three-Point Percentage - The percentage of successful three-point shots made (3PM / 3PA)",
+    FTM = "Free Throws Made - The number of free throws made by the player",
+    FTA = "Free Throws Attempted - The number of free throws attempted by the player",
+    `FT%` = "Free Throw Percentage - The percentage of successful free throws made (FTM / FTA)",
+    OREB = "Offensive Rebounds - The number of rebounds grabbed on the offensive end",
+    DREB = "Defensive Rebounds - The number of rebounds grabbed on the defensive end",
+    REB = "Rebounds - The total number of rebounds grabbed by the player (OREB + DREB)",
+    AST = "Assists - The total number of assists by the player",
+    TOV = "Turnovers - The total number of times the player lost possession of the ball",
+    STL = "Steals - The total number of steals by the player",
+    BLK = "Blocks - The total number of shots blocked by the player",
+    PF = "Personal Fouls - The total number of personal fouls committed by the player",
+    FP = "Fantasy Points - A fantasy basketball scoring system based on stats",
+    DD2 = "Double-Double (Points and Rebounds or Assists) - The number of times the player has achieved a double-double",
+    TD3 = "Triple-Double (Points, Rebounds, Assists) - The number of times the player has achieved a triple-double",
+    `+/-` = "Plus/Minus - The point differential when the player is on the court"
+  )
   
   # Read and clean data
   Lineups <- read_excel("Lineups.xlsx")
@@ -82,7 +202,6 @@ server <- function(input, output, session) {
     mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
   Players.custom <- left_join(Players, Advanced, by = c("Player", "Team"))
   
-  # Reshape player names to match names in lineups
   Players <- Players %>%
     mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player))
   
@@ -90,13 +209,18 @@ server <- function(input, output, session) {
   selected_player_stats <- reactiveVal(NULL)
   lineup_source <- reactiveVal(NULL)  # Track source of lineup selection
   
-  # Update dropdown choices
+  # Update dropdown choices for custom lineup and EDA variables
   observe({
     updatePickerInput(session, "team", choices = c("All Teams", unique(Lineups$Team)))
     updatePickerInput(session, "sort_by", choices = names(Lineups)[sapply(Lineups, is.numeric)])
     updateSelectInput(session, "Guard", choices = Players.custom$Player[Players.custom$Pos %in% c("PG", "SG")])
     updateSelectInput(session, "Forward", choices = Players.custom$Player[Players.custom$Pos %in% c("SF", "PF")])
     updateSelectInput(session, "Center", choices = Players.custom$Player[Players.custom$Pos == "C"])
+    
+    # EDA variable choices
+    updateSelectInput(session, "eda_variable", choices = names(Players))
+    updateSelectInput(session, "eda_corr_var1", choices = names(Players))
+    updateSelectInput(session, "eda_corr_var2", choices = names(Players))
   })
   
   # Lineup Analysis
@@ -105,7 +229,6 @@ server <- function(input, output, session) {
     filtered_data <- if (input$team == "All Teams") Lineups else Lineups %>% filter(Team == input$team)
     datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
   })
-  
   
   # Render the player stats for the selected lineup
   output$playerTable <- renderDT({
@@ -153,7 +276,7 @@ server <- function(input, output, session) {
     datatable(
       player_stats,
       options = list(
-      # Display 5 rows per page
+        # Display 5 rows per page
         autoWidth = TRUE,  # Adjust column widths automatically
         dom = 'tip',  # Only show table with pagination and search
         columnDefs = list(list(targets = "_all", className = "dt-center"))  # Center-align columns
@@ -162,7 +285,38 @@ server <- function(input, output, session) {
     )
   })
   
-  # Lineup Builder
+  # EDA Summary Table
+  output$eda_summary <- renderTable({
+    req(Players)  # Ensure Players is available before rendering the summary
+    summary(Players)  # Show a summary of the dataset
+  })
+  
+  # EDA Histogram
+  output$eda_histogram <- renderPlot({
+    req(input$eda_variable)  # Ensure a variable is selected for the histogram
+    req(Players)  # Ensure Players is available
+    
+    ggplot(Players, aes_string(x = input$eda_variable)) +
+      geom_histogram(bins = 30, fill = "blue", color = "black") +
+      theme_minimal() +
+      labs(title = paste("Histogram of", input$eda_variable), x = input$eda_variable)
+  })
+  
+  # EDA Correlation Plot
+  output$eda_corr_plot <- renderPlot({
+    req(input$eda_corr_var1, input$eda_corr_var2)  # Ensure both variables are selected for correlation
+    
+    corr_data <- Players %>%
+      select(input$eda_corr_var1, input$eda_corr_var2)
+    
+    ggplot(corr_data, aes_string(x = input$eda_corr_var1, y = input$eda_corr_var2)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE, color = "red") +
+      theme_minimal() +
+      labs(title = paste("Correlation between", input$eda_corr_var1, "and", input$eda_corr_var2))
+  })
+  
+  # Lineup Builder - Custom Lineup
   observeEvent(input$build_lineup, {
     req(input$Guard, input$Forward, input$Center)
     selected_players <- c(input$Guard, input$Forward, input$Center)
@@ -171,20 +325,39 @@ server <- function(input, output, session) {
     selected_player_stats(custom_lineup)
     lineup_source("builder")  # Set source to lineup builder
     
-    # Update the customLineup table using renderDT
+    # Ensure JSON is properly formatted
+    stat_descriptions_json <- jsonlite::toJSON(stat_descriptions, auto_unbox = TRUE)
+    
     output$customLineup <- renderDT({
+      custom_lineup <- selected_player_stats()
+      
+      # Create the datatable with custom tooltips for column headers
       datatable(
         custom_lineup,
         options = list(
           pageLength = 5,         # Display 5 rows per page
-          autoWidth = TRUE,      # Automatically adjust column widths
-          dom = 'tip'            # Show table and pagination controls
+          autoWidth = TRUE,       # Automatically adjust column widths
+          dom = 'tip',            # Show table and pagination controls
+          initComplete = JS(
+            # Adding tooltips to the column headers directly
+            paste0(
+              "function(settings, json) {",
+              "var descriptions = ", stat_descriptions_json, ";",
+              "this.api().columns().header().each(function (col, i) {",
+              "var colName = $(col).text();",
+              "if (descriptions[colName]) {",
+              "$(col).attr('title', descriptions[colName]);",
+              "}",
+              "});",
+              "}"
+            )
+          )
         ),
-        selection = "none",    # No row selection
-        rownames = FALSE       # Hide row names
+        selection = "none",       # No row selection
+        rownames = FALSE          # Hide row names
       )
     })
-  })
+  })  # Close observeEvent
   
   # Server logic for resetting lineup builder inputs
   observeEvent(input$reset_lineup, {
@@ -312,6 +485,4 @@ server <- function(input, output, session) {
     do.call(tagList, radar_ui)
   })
 }
-
-# Run the application
-shinyApp(ui = ui, server = server)
+shinyApp(ui, server)
