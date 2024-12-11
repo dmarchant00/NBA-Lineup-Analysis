@@ -98,7 +98,11 @@ ui <- navbarPage(
         pickerInput(
           inputId = "sort_by",label = "Sort By:",choices = NULL, choicesOpt = list(content = NULL)
         ),
-        actionButton("analyze", "Analyze")
+        br(),
+        tags$figure(
+          class = "centerGettyImage",
+          HTML("<a id='daryMskoQUNnZdJZqhzO3w' class='gie-single' href='http://www.gettyimages.com/detail/2166235144' target='_blank' style='color:#a7a7a7;text-decoration:none;font-weight:normal !important;border:none;display:inline-block;'>Embed from Getty Images</a><script>window.gie=window.gie||function(c){(gie.q=gie.q||[]).push(c)};gie(function(){gie.widgets.load({id:'daryMskoQUNnZdJZqhzO3w',sig:'XKB5c1Q73bfBz3xdaP6jdNd-mQZ3_eKUtLyA6ppgYwk=',w:'594px',h:'396px',items:'2166235144',caption: true ,tld:'com',is360: false })});</script><script src='//embed-cdn.gettyimages.com/widgets.js' charset='utf-8' async></script>"),
+        )
       ),
       mainPanel(
         h3("Lineup Data"),
@@ -114,15 +118,34 @@ ui <- navbarPage(
   tabPanel(
     "Lineup Builder",
     fluidPage(
-      h3("Select Players"),
-      selectInput("Guard", "Select Guards (PG/SG):", choices = NULL, multiple = TRUE),
-      selectInput("Forward", "Select Forwards (SF/PF):", choices = NULL, multiple = TRUE),
-      selectInput("Center", "Select Centers (C):", choices = NULL, multiple = TRUE),
-      actionButton("build_lineup", "Build Lineup"),
-      actionButton("reset_lineup", "Reset Lineup", icon = icon("refresh")),
-      br(),
-      h4("Custom Lineup Data"),
-      DTOutput("customLineup")
+      fluidRow(
+        column(
+          width = 6,
+          h3("Select Players"),
+          selectInput("Guard", "Select Guards (PG/SG):", choices = NULL, multiple = TRUE),
+          selectInput("Forward", "Select Forwards (SF/PF):", choices = NULL, multiple = TRUE),
+          selectInput("Center", "Select Centers (C):", choices = NULL, multiple = TRUE),
+          actionButton("build_lineup", "Build Lineup"),
+          actionButton("reset_lineup", "Reset Lineup", icon = icon("refresh"))
+        ),
+        column(
+          width = 6,
+          tags$figure(
+            class = "centerGettyImage",
+            HTML(
+              "<a id='xAsj9LvnQXV04GqzxhiYsQ' class='gie-single' href='http://www.gettyimages.com/detail/2166240208' target='_blank' style='color:#a7a7a7;text-decoration:none;font-weight:normal !important;border:none;display:inline-block;'>Embed from Getty Images</a><script>window.gie=window.gie||function(c){(gie.q=gie.q||[]).push(c)};gie(function(){gie.widgets.load({id:'xAsj9LvnQXV04GqzxhiYsQ',sig:'boCY2FY43WUbWOEw5kZFXa_En964jHMqA7SeT0JO6Tc=',w:'594px',h:'396px',items:'2166240208',caption: true ,tld:'com',is360: false })});</script><script src='//embed-cdn.gettyimages.com/widgets.js' charset='utf-8' async></script>"
+            )
+          )
+        )
+      ),
+      fluidRow(
+        column(
+          width = 12,
+          br(),
+          h4("Custom Lineup Data"),
+          DTOutput("customLineup")
+        )
+      )
     )
   ),
   
