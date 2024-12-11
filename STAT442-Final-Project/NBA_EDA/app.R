@@ -197,11 +197,7 @@ server <- function(input, output, session) {
   Lineups <- read_excel("Lineups.xlsx")
   Players <- read_excel("Players.xlsx") %>% 
     mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
-  Advanced <- read_excel("Advanced.xlsx") %>% 
-    dplyr::select(Player, Team, Pos, PER, OWS, DWS, WS, OBPM, DBPM, BPM, VORP, Awards) %>% 
-    mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
-  # Now perform the left join
-  Players.custom <- left_join(Players, Advanced, by = c("Player", "Team"))
+  Players.custom <- read_excel("Players.custom.xlsx")
   
   
   Players <- Players %>%
@@ -496,7 +492,7 @@ server <- function(input, output, session) {
     # Calculate the sum of the selected metric
     total_metric <- sum(custom_lineup[[input$metric]], na.rm = TRUE)
     
-    league_average <- mean(Players.custom[[input$metric]], na.rm = TRUE) * 5
+    league_average <- median(Players.custom[[input$metric]], na.rm = TRUE) * 5
     
     # Create a data frame to display the sum
     data.frame(Metric = input$metric, `Lineup-Total` = total_metric, `League-Average` = league_average)
