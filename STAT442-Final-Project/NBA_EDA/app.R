@@ -57,16 +57,41 @@ ui <- navbarPage(
             icon("chart-bar", style = "font-size: 40px; color: #1C1C1C;")
           )
         )
+      ),
+      
+      # Add Data Links Section
+      fluidRow(
+        column(
+          12,
+          div(
+            class = "card text-center",
+            style = "padding-top: 30px;",
+            h3("Data Sources"),
+            p("Below are the data sources used for this analysis:"),
+            tags$ul(
+              tags$li(
+                a("Lineup Data: NBA Stats - Lineups", href = "https://www.nba.com/stats/lineups/advanced", target = "_blank")
+              ),
+              tags$li(
+                a("Player Data: Basketball Reference - Advanced Stats", href = "https://www.basketball-reference.com/leagues/NBA_2024_advanced.html", target = "_blank")
+              ),
+              tags$li(
+                a("Player Data: NBA Stats - Leaders (Per 48)", href = "https://www.nba.com/stats/leaders?Season=2023-24&PerMode=Per48", target = "_blank")
+              )
+            )
+          )
+        )
       )
     )
   ),
+
   
   # Lineup Analysis
   tabPanel(
     "Lineup Analysis",
     sidebarLayout(
       sidebarPanel(
-        h4("Filter Lineups"),
+        h3("Filter Lineups"),
         pickerInput(
           inputId = "team",label = "Select Team:",choices = NULL, choicesOpt = list(content = NULL)
         ),
@@ -107,8 +132,8 @@ ui <- navbarPage(
            tags$p(tags$small("Stat Definitions"))
   ),
   
-  tabPanel("Lineup Overall",
-           h3("How good is this lineup?"),
+  tabPanel("Lineup Performance",
+           h3("Evaluate how well your lineup performs across key metrics"),
            selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
            textOutput("metricDescription"),  # Added textOutput for the metric description
            tableOutput("metricTotal"),
@@ -147,14 +172,14 @@ server <- function(input, output, session) {
   
   # Stat descriptions for tooltips
   stat_descriptions <- list(
-    PER = "Player Efficiency Rating",
-    OWS = "Offensive Win Shares",
-    DWS = "Defensive Win Shares",
-    WS = "Win Shares",
-    OBPM = "Offensive Box Plus-Minus",
-    DBPM = "Defensive Box Plus-Minus",
-    BPM = "Box Plus-Minus",
-    VORP = "Value Over Replacement Player",
+    PER = "Player Efficiency Rating (A measure of per-minute production standardized such that the league average is 15)",
+    OWS = "Offensive Win Shares (An estimate of the number of wins contributed by a player due to offense)",
+    DWS = "Defensive Win Shares (An estimate of the number of wins contributed by a player due to defense.)",
+    WS = "Win Shares (An estimate of the number of wins contributed by a player.)",
+    OBPM = "Offensive Box Plus-Minus (A box score estimate of the offensive points per 100 possessions a player contributed above a league-average player, translated to an average team.)",
+    DBPM = "Defensive Box Plus-Minus (A box score estimate of the defensive points per 100 possessions a player contributed above a league-average player, translated to an average team.)",
+    BPM = "Box Plus-Minus (A box score estimate of the points per 100 possessions a player contributed above a league-average player, translated to an average team)",
+    VORP = "Value Over Replacement Player (A box score estimate of the points per 100 TEAM possessions that a player contributed above a replacement-level (-2.0) player, translated to an average team and prorated to an 82-game season.)",
     Player = "The name of the player",
     Team = "The team the player is associated with",
     Age = "The player's age",
@@ -590,6 +615,12 @@ server <- function(input, output, session) {
     do.call(tagList, radar_ui)
   })
   
+  # Show Metric Description dynamically
+  output$metricDescription <- renderText({
+    req(input$metric)  # Ensure input is available
+    stat_descriptions[[input$metric]]  # Display description based on the selected metric
+  })
+  
   output$lineup <- renderPlotly({
     req(selected_player_stats(), input$metric)
     
@@ -620,6 +651,7 @@ server <- function(input, output, session) {
     # Create an interactive violin plot
     plot_ly(
       data = result_data,
+      x = 0,
       y = ~Total_Metric,
       type = 'violin',
       text = ~paste("Lineup: ", Lineup, "<br>Total ", selected_metric, ": ", round(Total_Metric, 2)),
@@ -634,22 +666,19 @@ server <- function(input, output, session) {
       layout(
         title = paste("Distribution of Total", selected_metric, "for Random Lineups"),
         yaxis = list(title = paste("Total", selected_metric)),
-        xaxis = list(title = "5-Player Combinations"),
+        xaxis = list(title = "5-Player Combinations", showticklabels = FALSE ),
         hoverlabel = list(bgcolor = "white", font = list(size = 12)),
-        height = 700,
-        annotations = list(  # Add annotation for the selected lineup's metric
-          list(
-            x = 0.2,  # Horizontal position (centered in the plot)
-            y = selected_lineup_metric,  # Vertical position (the total metric of the selected lineup)
-            text = paste("Selected Lineup<br>Total ", selected_metric, ": ", round(selected_lineup_metric, 2)),
-            showarrow = TRUE,
-            arrowhead = 4,
-            ax = 0,
-            ay = -40,
-            font = list(size = 12, color = 'black'),
-            bgcolor = 'rgba(255, 255, 255, 0.7)'  # Background color for the annotation
-          )
-        )
+        height = 700
+      ) %>%
+      add_trace(
+        x = .05,  # Ensure the point is centered horizontally
+        y = selected_lineup_metric,
+        type = 'scatter',
+        mode = 'markers',
+        marker = list(size = 20, color = '#990000', opacity = 1),
+        name = "Lineup Built",
+        hoverinfo = 'text',
+        text = paste("Lineup Builts: ", paste(selected_lineup$Player, collapse = ", "), "<br>Total ", selected_metric, ": ", round(selected_lineup_metric, 2))
       )
   })
 }
