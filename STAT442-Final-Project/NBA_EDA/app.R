@@ -10,6 +10,9 @@ library(scales) # percentile calculations
 library(plotly) # radar chart
 library(shinythemes)  # Themes
 library(shinyWidgets)
+library(car)
+library(MASS)
+library(caret)
 
 ui <- navbarPage(
   title = "NBA Lineups Analysis",
@@ -68,10 +71,10 @@ ui <- navbarPage(
       sidebarPanel(
         h4("Filter Lineups"),
         pickerInput(
-          inputId = "team",label = "Select Team:",choices = NULL, choicesOpt = list(content = NULL)
+          inputId = "team", label = "Select Team:", choices = NULL, choicesOpt = list(content = NULL)
         ),
         pickerInput(
-          inputId = "sort_by",label = "Sort By:",choices = NULL, choicesOpt = list(content = NULL)
+          inputId = "sort_by", label = "Sort By:", choices = NULL, choicesOpt = list(content = NULL)
         ),
         actionButton("analyze", "Analyze")
       ),
@@ -85,7 +88,7 @@ ui <- navbarPage(
     )
   ),
   
-  # Lineup Builder
+  # Lineup Builder UI
   tabPanel(
     "Lineup Builder",
     fluidPage(
@@ -103,6 +106,7 @@ ui <- navbarPage(
           6,
           h3("Custom Lineup Metrics"),
           selectInput("metric", "Select Metric:", choices = c("PER", "OWS", "DWS", "WS", "OBPM", "DBPM", "BPM", "VORP")),
+          textOutput("metricDescription"),  # Added textOutput for the metric description
           tableOutput("metricTotal")
         )
       ),
@@ -118,28 +122,24 @@ ui <- navbarPage(
            tags$p(tags$small("Stat Definitions"))
   ),
   
-  # EDA
-  tabPanel(
-    "EDA",
-    fluidPage(
-      sidebarLayout(
-        sidebarPanel(
-          h4("Exploratory Data Analysis"),
-          selectInput("eda_variable", "Variable for Histogram:", choices = NULL),
-          selectInput("eda_corr_var1", "Correlation Variable 1:", choices = NULL),
-          selectInput("eda_corr_var2", "Correlation Variable 2:", choices = NULL),
-          actionButton("eda_corr_button", "Generate Correlation")
-        ),
-        mainPanel(
-          h4("Summary Statistics"),
-          tableOutput("eda_summary"),
-          h4("Histogram"),
-          plotOutput("eda_histogram"),
-          h4("Correlation Plot"),
-          plotOutput("eda_corr_plot")
-        )
-      )
-    )
+  tabPanel("EDA",
+           # Basic EDA Plots
+           uiOutput("basic_eda_plots"),  # Renders the basic EDA plots
+           
+           # Scatter Plot
+           plotlyOutput("scatter_plot"),
+           
+           # Linear Model Summary (Initial)
+           verbatimTextOutput("linear_model_summary"),
+           
+           # Diagnostic Plots for Initial Model
+           plotOutput("diagnostic_plots_initial"),
+           
+           # Linear Model Summary (Updated)
+           verbatimTextOutput("linear_model_updated_summary"),
+           
+           # Diagnostic Plots for Updated Model
+           plotOutput("diagnostic_plots_updated")
   ),
   
   # Footer
@@ -198,7 +198,7 @@ server <- function(input, output, session) {
   Players <- read_excel("Players.xlsx") %>% 
     mutate(Player = stri_trans_general(Player, "Latin-ASCII"))
   Players.custom <- read_excel("Players.custom.xlsx")
-
+  
   
   Players <- Players %>%
     mutate(Player = gsub("(^[A-Za-z'\\-])[A-Za-z'\\-]*\\s([A-Za-z]+)", "\\1. \\2", Player))
@@ -225,7 +225,7 @@ server <- function(input, output, session) {
   output$lineupTable <- renderDT({
     req(input$team, input$sort_by)
     filtered_data <- if (input$team == "All Teams") Lineups else Lineups %>% filter(Team == input$team)
-    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% select(Lineups, Team, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
+    datatable(filtered_data %>% arrange(desc(!!sym(input$sort_by))) %>% dplyr::select(Lineups, Team, !!sym(input$sort_by)), selection = "single", options = list(pageLength = 5))
   })
   
   # Render the player stats for the selected lineup
@@ -283,36 +283,146 @@ server <- function(input, output, session) {
     )
   })
   
-  # EDA Summary Table
-  output$eda_summary <- renderTable({
-    req(Players)  # Ensure Players is available before rendering the summary
-    summary(Players)  # Show a summary of the dataset
+  # Basic EDA Plots
+  output$basic_eda_plots <- renderUI({
+    tagList(
+      # Histogram for +/- column
+      plotOutput("histogram_plus_minus"),
+      br(),
+      
+      # Boxplot for PIE column
+      plotOutput("boxplot_pie"),
+      br(),
+      
+      # Correlation plot of numeric variables
+      plotOutput("correlation_plot")
+    )
   })
   
-  # EDA Histogram
-  output$eda_histogram <- renderPlot({
-    req(input$eda_variable)  # Ensure a variable is selected for the histogram
-    req(Players)  # Ensure Players is available
-    
-    ggplot(Players, aes_string(x = input$eda_variable)) +
-      geom_histogram(bins = 30, fill = "blue", color = "black") +
-      theme_minimal() +
-      labs(title = paste("Histogram of", input$eda_variable), x = input$eda_variable)
+  # Basic EDA Plots with Plotly
+  output$basic_eda_plots <- renderUI({
+    tagList(
+      # Plotly Histogram for +/- column
+      plotlyOutput("histogram_plus_minus"),
+      br(),
+      
+      # Plotly Boxplot for PIE column
+      plotlyOutput("boxplot_pie"),
+      br(),
+      
+      # Plotly Correlation plot of numeric variables
+      plotlyOutput("correlation_plot")
+    )
   })
   
-  # EDA Correlation Plot
-  output$eda_corr_plot <- renderPlot({
-    req(input$eda_corr_var1, input$eda_corr_var2)  # Ensure both variables are selected for correlation
+  # Plotly Histogram of +/- 
+  output$histogram_plus_minus <- renderPlotly({
+    p <- ggplot(Lineups, aes(x = `+/-`)) +
+      geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
+      labs(title = "Distribution of +/-", x = "+/-", y = "Frequency") +
+      theme_minimal()
     
-    corr_data <- Players %>%
-      select(input$eda_corr_var1, input$eda_corr_var2)
+    ggplotly(p)
+  })
+  
+  # Plotly Boxplot for PIE
+  output$boxplot_pie <- renderPlotly({
+    p <- ggplot(Lineups, aes(y = PIE)) +
+      geom_boxplot(fill = "green", color = "black", alpha = 0.7) +
+      labs(title = "Boxplot of PIE", y = "PIE") +
+      theme_minimal()
     
-    ggplot(corr_data, aes_string(x = input$eda_corr_var1, y = input$eda_corr_var2)) +
+    ggplotly(p)
+  })
+  
+  # Plotly Correlation Plot for Numeric Variables
+  output$correlation_plot <- renderPlotly({
+    # Select numeric variables only for correlation
+    numeric_vars <- Lineups %>% select_if(is.numeric)
+    corr_matrix <- cor(numeric_vars, use = "complete.obs")
+    
+    # Create the correlation plot
+    p <- plot_ly(
+      z = corr_matrix,
+      x = colnames(corr_matrix),
+      y = colnames(corr_matrix),
+      type = "heatmap",
+      colors = colorRamp(c("blue", "white", "red"))
+    ) %>% layout(
+      title = "Correlation Matrix of Numeric Variables",
+      xaxis = list(title = "Variables"),
+      yaxis = list(title = "Variables")
+    )
+    
+    p
+  })
+  
+  # Plotly Scatter Plot Output
+  output$scatter_plot <- renderPlotly({
+    p <- ggplot(Lineups, aes(
+      x = `+/-`, 
+      y = PIE, 
+      text = paste("Lineup:", Lineups, "<br>Team:", Team, "<br>+/-:", `+/-`, "<br>PIE:", PIE)
+    )) +
       geom_point() +
-      geom_smooth(method = "lm", se = FALSE, color = "red") +
-      theme_minimal() +
-      labs(title = paste("Correlation between", input$eda_corr_var1, "and", input$eda_corr_var2))
+      labs(
+        title = "Correlation between +/- and PIE", 
+        x = "Plus Minus", 
+        y = "PIE"
+      ) +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = "text")
   })
+  
+  # Linear Model Summary Output with Diagnostic Plots
+  output$linear_model_summary <- renderPrint({
+    # Initial Linear Model
+    linear_model <- lm(`+/-` ~ . - Lineups - Team - Min, data = Lineups)
+    cat("Initial Linear Model Summary:\n")
+    print(summary(linear_model))
+    
+    # Check for Aliased Coefficients
+    alias_info <- alias(linear_model)
+    cat("\nAliased coefficients:\n")
+    print(alias_info)
+  })
+  
+  output$diagnostic_plots_initial <- renderPlot({
+    # Initial Linear Model
+    linear_model <- lm(`+/-` ~ . - Lineups - Team - Min, data = Lineups)
+    
+    # Diagnostic Plots for Initial Model
+    par(mfrow = c(2, 2))  # Set up a 2x2 plot grid for multiple plots
+    plot(linear_model)
+    
+    # Reset plot layout to default after plotting
+    par(mfrow = c(1, 1))  # Reset the layout to 1 plot per page
+  })
+  
+  output$linear_model_updated_summary <- renderPrint({
+    # Updated Linear Model
+    linear_model_updated <- lm(`+/-` ~ . - Lineups - Team - REB - FTM - Min - FGM - `3PM` - NetRtg - `AST/TO` - `AST%` - `REB%`, data = Lineups)
+    cat("\nUpdated Linear Model Summary:\n")
+    print(summary(linear_model_updated))
+  })
+  
+  output$diagnostic_plots_updated <- renderPlot({
+    # Updated Linear Model
+    linear_model_updated <- lm(`+/-` ~ . - Lineups - Team - REB - FTM - Min - FGM - `3PM` - NetRtg - `AST/TO` - `AST%` - `REB%`, data = Lineups)
+    
+    # Diagnostic Plots for Updated Model
+    par(mfrow = c(2, 2))  # Set up a 2x2 plot grid for multiple plots
+    plot(linear_model_updated)
+    
+    # Reset plot layout to default after plotting
+    par(mfrow = c(1, 1))  # Reset the layout to 1 plot per page
+  })
+  
+  
+  
+  
+
   
   # Lineup Builder - Custom Lineup
   observeEvent(input$build_lineup, {
@@ -355,7 +465,13 @@ server <- function(input, output, session) {
         rownames = FALSE          # Hide row names
       )
     })
-  })  # Close observeEvent
+  })
+  
+  # Show Metric Description dynamically
+  output$metricDescription <- renderText({
+    req(input$metric)  # Ensure input is available
+    stat_descriptions[[input$metric]]  # Display description based on the selected metric
+  })
   
   # Server logic for resetting lineup builder inputs
   observeEvent(input$reset_lineup, {
@@ -381,6 +497,7 @@ server <- function(input, output, session) {
     # Create a data frame to display the sum
     data.frame(Metric = input$metric, `Lineup-Total` = total_metric, `League-Average` = league_average)
   })
+  
   
   # Render radar charts for each player in the selected lineup
   output$radarChart <- renderUI({
