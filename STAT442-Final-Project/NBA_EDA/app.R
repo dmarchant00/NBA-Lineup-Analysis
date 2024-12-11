@@ -10,6 +10,7 @@ library(scales) # percentile calculations
 library(plotly) # radar chart
 library(shinythemes)  # Themes
 library(shinyWidgets)
+library(GGally)
 
 ui <- navbarPage(
   title = "NBA Lineups Analysis",
@@ -163,24 +164,41 @@ ui <- navbarPage(
            plotlyOutput("lineup")
   ),
   
-  tabPanel("EDA",
-           # Basic EDA Plots
-           uiOutput("basic_eda_plots"),  # Renders the basic EDA plots
-           
-           # Scatter Plot
-           plotlyOutput("scatter_plot"),
-           
-           # Linear Model Summary (Initial)
-           verbatimTextOutput("linear_model_summary"),
-           
-           # Diagnostic Plots for Initial Model
-           plotOutput("diagnostic_plots_initial"),
-           
-           # Linear Model Summary (Updated)
-           verbatimTextOutput("linear_model_updated_summary"),
-           
-           # Diagnostic Plots for Updated Model
-           plotOutput("diagnostic_plots_updated")
+  tabPanel(
+    "EDA",
+    
+    # Section for basic EDA Plots
+    uiOutput("basic_eda_plots"),
+    
+    # Scatter plot comparison: +/- vs NetRtg
+    plotlyOutput("scatter_plot_plus_minus_vs_netrtg"),
+    
+    # Boxplot comparison of +/- by Team
+    plotlyOutput("boxplot_plus_minus_by_team"),
+    
+    # Stacked Bar Plot: Position Distribution by Team
+    plotlyOutput("stacked_bar_pie_by_team"),
+    
+    # Violin Plot: +/- Distribution across Teams
+    plotlyOutput("violin_plot_plus_minus_by_team"),
+    
+    # Heatmap: Top Performers by NetRtg
+    plotlyOutput("heatmap_top_performers"),
+    
+    # CDF of +/- distribution
+    plotlyOutput("cdf_plus_minus"),
+    
+    # Linear Model Summary Output
+    verbatimTextOutput("linear_model_summary"),
+    
+    # Initial diagnostic plots
+    plotOutput("diagnostic_plots_initial"),
+    
+    # Updated Linear Model Summary
+    verbatimTextOutput("linear_model_updated_summary"),
+    
+    # Updated diagnostic plots
+    plotOutput("diagnostic_plots_updated")
   ),
   
   # Footer
@@ -325,45 +343,18 @@ server <- function(input, output, session) {
     )
   })
   
-  # EDA Summary Table
-  output$eda_summary <- renderTable({
-    req(Players)  # Ensure Players is available before rendering the summary
-    summary(Players)  # Show a summary of the dataset
-  })
-  
-  # Basic EDA Plots
+  # EDA - Basic Plots
   output$basic_eda_plots <- renderUI({
     tagList(
-      # Histogram for +/- column
-      plotOutput("histogram_plus_minus"),
-      br(),
-      
-      # Boxplot for PIE column
-      plotOutput("boxplot_pie"),
-      br(),
-      
-      # Correlation plot of numeric variables
-      plotOutput("correlation_plot")
-    )
-  })
-  
-  # Basic EDA Plots with Plotly
-  output$basic_eda_plots <- renderUI({
-    tagList(
-      # Plotly Histogram for +/- column
       plotlyOutput("histogram_plus_minus"),
       br(),
-      
-      # Plotly Boxplot for PIE column
-      plotlyOutput("boxplot_pie"),
+      plotlyOutput("correlation_plot"),
       br(),
-      
-      # Plotly Correlation plot of numeric variables
-      plotlyOutput("correlation_plot")
+      plotlyOutput("scatter_plot_plus_minus_vs_pie")
     )
   })
   
-  # Plotly Histogram of +/- 
+  # Histogram for +/- (this looks correct)
   output$histogram_plus_minus <- renderPlotly({
     p <- ggplot(Lineups, aes(x = `+/-`)) +
       geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
@@ -373,23 +364,11 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
   
-  # Plotly Boxplot for PIE
-  output$boxplot_pie <- renderPlotly({
-    p <- ggplot(Lineups, aes(y = PIE)) +
-      geom_boxplot(fill = "green", color = "black", alpha = 0.7) +
-      labs(title = "Boxplot of PIE", y = "PIE") +
-      theme_minimal()
-    
-    ggplotly(p)
-  })
-  
-  # Plotly Correlation Plot for Numeric Variables
+  # Correlation Plot (this should be correct)
   output$correlation_plot <- renderPlotly({
-    # Select numeric variables only for correlation
     numeric_vars <- Lineups %>% select_if(is.numeric)
     corr_matrix <- cor(numeric_vars, use = "complete.obs")
     
-    # Create the correlation plot
     p <- plot_ly(
       z = corr_matrix,
       x = colnames(corr_matrix),
@@ -405,8 +384,8 @@ server <- function(input, output, session) {
     p
   })
   
-  # Plotly Scatter Plot Output
-  output$scatter_plot <- renderPlotly({
+  # Scatter Plot: +/- vs PIE
+  output$scatter_plot_plus_minus_vs_pie <- renderPlotly({
     p <- ggplot(Lineups, aes(
       x = `+/-`, 
       y = PIE, 
@@ -416,55 +395,144 @@ server <- function(input, output, session) {
       labs(
         title = "Correlation between +/- and PIE", 
         x = "Plus Minus", 
-        y = "PIE"
+        y = "Player Impact Estimate (PIE)"
       ) +
       theme_minimal()
     
     ggplotly(p, tooltip = "text")
   })
   
-  # Linear Model Summary Output with Diagnostic Plots
+  # Scatter Plot: +/- vs NetRtg
+  output$scatter_plot_plus_minus_vs_netrtg <- renderPlotly({
+    p <- ggplot(Lineups, aes(
+      x = `+/-`, 
+      y = NetRtg, 
+      text = paste("Lineup:", Lineups, "<br>Team:", Team, "<br>+/-:", `+/-`, "<br>NetRtg:", NetRtg)
+    )) +
+      geom_point() +
+      labs(
+        title = "Correlation between +/- and NetRtg", 
+        x = "Plus Minus", 
+        y = "Net Rating"
+      ) +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = "text")
+  })
+  
+  # Boxplot: +/- by Team
+  output$boxplot_plus_minus_by_team <- renderPlotly({
+    p <- ggplot(Lineups, aes(x = Team, y = `+/-`, color = Team)) +
+      geom_boxplot() +
+      labs(title = "Boxplot of +/- by Team", x = "Team", y = "+/-") +
+      theme_minimal() +
+      theme(legend.position = "none")
+    
+    ggplotly(p)
+  })
+  
+  # Stacked Bar Plot: PIE Ranges by Team with Reversed Order
+  output$stacked_bar_pie_by_team <- renderPlotly({
+    # Define PIE ranges as per the requested intervals
+    Lineups$PIE_range <- cut(Lineups$PIE, breaks = c(-Inf, 30, 40, 50, 60,Inf), 
+                             labels = c("Less than 30", "30-39", "40-49", "50-59", "60+"))
+    
+    # Reverse the order of the PIE_range factor levels
+    Lineups$PIE_range <- factor(Lineups$PIE_range, levels = c("Less than 30", "30-39", "40-49", "50-59", "60+"))
+    
+    # Count players by PIE range and team
+    pie_team_counts <- Lineups %>%
+      group_by(Team, PIE_range) %>%
+      summarise(Count = n()) %>%
+      ungroup()
+    
+    # Create stacked bar plot with x-axis as teams
+    p <- ggplot(pie_team_counts, aes(x = Team, y = Count, fill = PIE_range)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Stacked Bar Plot of PIE Ranges by Team", 
+           x = "Team", y = "Count of Players") +
+      theme_minimal() +
+      theme(legend.title = element_blank()) +
+      scale_fill_brewer(palette = "Set3")
+    
+    ggplotly(p)
+  })
+  
+  
+  
+  # Violin Plot: +/- Distribution across Teams
+  output$violin_plot_plus_minus_by_team <- renderPlotly({
+    p <- ggplot(Lineups, aes(x = Team, y = `+/-`, fill = Team)) +
+      geom_violin(trim = FALSE) +
+      labs(title = "Violin Plot of +/- by Team", x = "Team", y = "+/-") +
+      theme_minimal() +
+      theme(legend.position = "none")
+    
+    ggplotly(p)
+  })
+  
+  # Heatmap: Top Performers by PER
+  output$heatmap_top_performers <- renderPlotly({
+    top_performers <- Advanced %>%
+      group_by(Team) %>%
+      top_n(5, PER) %>%
+      ungroup()
+    
+    p <- plot_ly(
+      data = top_performers,
+      x = ~Player, y = ~Team, z = ~PER, 
+      type = "heatmap",
+      colors = colorRamp(c("blue", "white", "red"))
+    ) %>% layout(
+      title = "Top Performers (by PER) Heatmap",
+      xaxis = list(title = "Player"),
+      yaxis = list(title = "Team")
+    )
+    
+    p
+  })
+  
+  # CDF of +/- Distribution
+  output$cdf_plus_minus <- renderPlotly({
+    p <- ggplot(Lineups, aes(x = `+/-`)) +
+      stat_ecdf(geom = "step", aes(color = Team)) +
+      labs(title = "CDF of +/- by Team", x = "+/-", y = "Cumulative Probability") +
+      theme_minimal()
+    
+    ggplotly(p)
+  })
+  
+  # Linear Model Summary
   output$linear_model_summary <- renderPrint({
-    # Initial Linear Model
     linear_model <- lm(`+/-` ~ . - Lineups - Team - Min, data = Lineups)
     cat("Initial Linear Model Summary:\n")
     print(summary(linear_model))
-    
-    # Check for Aliased Coefficients
     alias_info <- alias(linear_model)
     cat("\nAliased coefficients:\n")
     print(alias_info)
   })
   
+  # Diagnostic Plots for Initial Model
   output$diagnostic_plots_initial <- renderPlot({
-    # Initial Linear Model
     linear_model <- lm(`+/-` ~ . - Lineups - Team - Min, data = Lineups)
-    
-    # Diagnostic Plots for Initial Model
-    par(mfrow = c(2, 2))  # Set up a 2x2 plot grid for multiple plots
+    par(mfrow = c(2, 2))
     plot(linear_model)
-    
-    # Reset plot layout to default after plotting
-    par(mfrow = c(1, 1))  # Reset the layout to 1 plot per page
+    par(mfrow = c(1, 1)) 
   })
   
+  # Updated Linear Model Summary
   output$linear_model_updated_summary <- renderPrint({
-    # Updated Linear Model
     linear_model_updated <- lm(`+/-` ~ . - Lineups - Team - REB - FTM - Min - FGM - `3PM` - NetRtg - `AST/TO` - `AST%` - `REB%`, data = Lineups)
     cat("\nUpdated Linear Model Summary:\n")
     print(summary(linear_model_updated))
   })
   
+  # Diagnostic Plots for Updated Model
   output$diagnostic_plots_updated <- renderPlot({
-    # Updated Linear Model
     linear_model_updated <- lm(`+/-` ~ . - Lineups - Team - REB - FTM - Min - FGM - `3PM` - NetRtg - `AST/TO` - `AST%` - `REB%`, data = Lineups)
-    
-    # Diagnostic Plots for Updated Model
-    par(mfrow = c(2, 2))  # Set up a 2x2 plot grid for multiple plots
+    par(mfrow = c(2, 2))
     plot(linear_model_updated)
-    
-    # Reset plot layout to default after plotting
-    par(mfrow = c(1, 1))  # Reset the layout to 1 plot per page
+    par(mfrow = c(1, 1)) 
   })
   
   # Lineup Builder - Custom Lineup
