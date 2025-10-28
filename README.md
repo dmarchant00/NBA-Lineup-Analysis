@@ -2,6 +2,8 @@
 
 ## Andrew Marchant and Joe Uttecht
 
-allows you to analyze lineups from the 2023-2024 NBA season and build custom lineups and see how these compare across the league
+Exploratory Data Analysis of NBA lineups using R and Shiny.
+
+Allows you to analyze lineups from the 2023-2024 NBA season and build custom NBA lineups to see how they compare across the league.
 
 https://dmarchant00.shinyapps.io/NBA_App/
