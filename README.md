@@ -1,4 +1,4 @@
-# STAT442-Final-Project
+# NBA-Lineup-Analysis
 
 ## Andrew Marchant and Joe Uttecht
 
